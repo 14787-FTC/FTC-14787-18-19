@@ -1,11 +1,13 @@
 package org.firstinspires.ftc.team14787;
 
+import com.qualcomm.hardware.motors.NeveRest20Gearmotor;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.ColorSensor;
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 import com.qualcomm.hardware.bosch.BNO055IMU;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.CRServo;
+import com.qualcomm.robotcore.hardware.configuration.typecontainers.MotorConfigurationType;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.AxesOrder;
@@ -30,8 +32,20 @@ public class RobotHardware {
     private double lastAngle, power, correction;
     private boolean touched;
 
+    private final double drivePidKp = 1;     // Tuning variable for PID.
+    private final double drivePidTi = 1.0;   // Eliminate integral error in 1 sec.
+    private final double drivePidTd = 0.1;   // Account for error in 0.1 sec.
+    // Protect against integral windup by limiting integral term.
+    private final double drivePidIntMax = 1;  // Limit to max speed.
+    private final double driveOutMax = 1.0;  // Motor output limited to 100%.
+
+    final private MotorConfigurationType MOTOR_CONFIG = MotorConfigurationType.getMotorType(NeveRest20Gearmotor.class);
+    final private int GEAR_RATIO = 20;
+    final private double TICKS_PER_REV = MOTOR_CONFIG.getTicksPerRev();
+    final private double INCHES_PER_REV = 12.3685039;
+
     // Drive train motors
-    List<DcMotor> driveTrain;
+    private List<DcMotor> driveTrain;
     DcMotor frontLeftDrive;
     DcMotor frontRightDrive;
     DcMotor backLeftDrive;
@@ -54,12 +68,12 @@ public class RobotHardware {
     CRServo rev2;
 
     // Color sensor
-    ColorSensor colorSensor;
+    private ColorSensor colorSensor;
 
     /**
      * Robot hardware constructor including the imu
      */
-    public RobotHardware(Telemetry telemetry, HardwareMap hardwareMap, BNO055IMU imu) {
+    RobotHardware(Telemetry telemetry, HardwareMap hardwareMap, BNO055IMU imu) {
         this(telemetry, hardwareMap);
         this.imu = imu;
     }
@@ -67,7 +81,7 @@ public class RobotHardware {
     /**
      * Robot hardware constructor, configure all motor configurations
      */
-    public RobotHardware(Telemetry telemetry, HardwareMap hardwareMap) {
+    RobotHardware(Telemetry telemetry, HardwareMap hardwareMap) {
         this.telemetry = telemetry;
 
         frontLeftDrive = hardwareMap.get(DcMotor.class, "frontLeftDrive");
@@ -78,13 +92,13 @@ public class RobotHardware {
         frontLeftDrive.setDirection(DcMotor.Direction.REVERSE);
         backLeftDrive.setDirection(DcMotor.Direction.REVERSE);
 
-        driveTrain = new ArrayList<DcMotor>();
+        driveTrain = new ArrayList<>();
         driveTrain.add(this.frontLeftDrive);
         driveTrain.add(this.frontRightDrive);
         driveTrain.add(this.backLeftDrive);
         driveTrain.add(this.backRightDrive);
 
-        colorSensor = hardwareMap.colorSensor.get("color");
+        //colorSensor = hardwareMap.colorSensor.get("color");
 
         /*
         hang = hardwareMap.get(DcMotor.class, "hang");
@@ -100,11 +114,11 @@ public class RobotHardware {
         */
     }
 
-    public void readSensor() {
+    void readSensor() {
         telemetry.addData("Color Sensor Information", "Alpha: %d\nHue: %d\nRGB: (%d, %d, %d)", colorSensor.alpha(), colorSensor.argb(), colorSensor.red(), colorSensor.green(), colorSensor.blue());
     }
 
-    public void left(double degrees, double speed) {
+    public void turnLeft(double degrees, double speed) {
         lastAngle = getGlobalAngle();
 
         telemetry.addData("Motion", "Last Angle: %.2f\nCurrent Angle: %.2f", lastAngle, getGlobalAngle());
@@ -127,7 +141,7 @@ public class RobotHardware {
         backRightDrive.setPower(0);
     }
 
-    public void right(double degrees, double speed) {
+    public void turnRight(double degrees, double speed) {
         lastAngle = getGlobalAngle();
 
         telemetry.addData("Motion", "Last Angle: %.2f\nCurrent Angle: %.2f", lastAngle, getGlobalAngle());
@@ -150,7 +164,37 @@ public class RobotHardware {
         backRightDrive.setPower(0);
     }
 
-    public double getGlobalAngle() {
+    void moveForward(double distance, double speed) {
+        double desiredRotations = distance / INCHES_PER_REV;
+        double targetEncPosSum = 0;
+        double currentEncSum = 0;
+
+        for (DcMotor motor : driveTrain) {
+            motor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+            motor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+
+            targetEncPosSum += motor.getCurrentPosition() + (7 * GEAR_RATIO * desiredRotations);
+        }
+
+        telemetry.addData("Status", "Moving forward %f inches\ntargetEncPosSum = %f", distance, targetEncPosSum);
+        telemetry.update();
+
+        while (currentEncSum < targetEncPosSum) {
+            currentEncSum = 0;
+            for (DcMotor motor : driveTrain) {
+                motor.setPower(speed);
+                currentEncSum += motor.getCurrentPosition();
+            }
+            telemetry.addData("Status", "Moving forward %f inches\ntargetEncPosSum = %f\ncurrentEncSum = %f\nPower = %f", distance, targetEncPosSum, currentEncSum, frontRightDrive.getPower());
+            telemetry.update();
+        }
+
+        for (DcMotor motor : driveTrain) {
+            motor.setPower(0);
+        }
+    }
+
+    private double getGlobalAngle() {
         return imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES).firstAngle;
     }
 }
