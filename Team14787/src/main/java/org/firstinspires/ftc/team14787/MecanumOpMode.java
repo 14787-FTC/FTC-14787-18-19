@@ -8,6 +8,8 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 public class MecanumOpMode extends LinearOpMode {
 
     private ElapsedTime runtime;
+    private boolean leftTrigger;
+    private boolean rightTrigger;
 
     @Override
     public void runOpMode() throws InterruptedException {
@@ -30,6 +32,8 @@ public class MecanumOpMode extends LinearOpMode {
             r = Math.hypot(gamepad1.left_stick_x, gamepad1.left_stick_y);
             robotAngle = Math.atan2(gamepad1.left_stick_y, gamepad1.left_stick_x) - Math.PI / 4;
             rightX = gamepad1.right_stick_x;
+            rightTrigger = gamepad1.dpad_up;
+            leftTrigger = gamepad1.dpad_down;
 
             p1 = r * Math.cos(robotAngle) - rightX;
             p2 = r * Math.sin(robotAngle) + rightX;
@@ -41,7 +45,13 @@ public class MecanumOpMode extends LinearOpMode {
             robot.backLeftDrive.setPower(p3);
             robot.backRightDrive.setPower(p4);
 
-            robot.readSensor();
+            if (rightTrigger) {
+                robot.hang.setPower(1);
+            } else if (leftTrigger) {
+                robot.hang.setPower(-1);
+            } else {
+                robot.hang.setPower(0);
+            }
 
             telemetry.addData("Status", "Runtime: %s", runtime.toString());
             telemetry.addData("Drive Train", "Front Left: %.2f\nFront Right: %.2f\nBack Left: %.2f\nBack Rigth: %.2f",

@@ -1,16 +1,14 @@
 package org.firstinspires.ftc.team14787;
 
 import com.qualcomm.hardware.bosch.BNO055IMU;
-import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 
 import org.firstinspires.ftc.robotcore.external.ClassFactory;
 import org.firstinspires.ftc.robotcore.external.navigation.VuforiaLocalizer;
 import org.firstinspires.ftc.robotcore.external.tfod.TFObjectDetector;
 
-import java.util.List;
-
-@TeleOp(name="AutonOpMode", group="Autonomous")
+@Autonomous(name="AutonOpMode", group="Autonomous")
 public class AutonOpMode extends LinearOpMode {
 
     private static final String TFOD_MODEL_ASSET = "RoverRuckus.tflite";
@@ -39,7 +37,6 @@ public class AutonOpMode extends LinearOpMode {
             telemetry.addData("Sorry!", "This device is not compatible with TFOD");
         }
 
-
         // Configure IMU
         BNO055IMU.Parameters parameters = new BNO055IMU.Parameters();
 
@@ -67,10 +64,10 @@ public class AutonOpMode extends LinearOpMode {
 
         MineralLocation goldLocation = null;
 
-        /* Activate Tensor Flow Object Detection. */
+        /* Activate Tensor Flow Object Detection.
         if (tfod != null) {
             tfod.activate();
-        }
+        }*/
 
         /*
         while (goldLocation == null) {
@@ -102,11 +99,12 @@ public class AutonOpMode extends LinearOpMode {
                 }
             }
         }
-        */
+
 
         if (tfod != null) {
             tfod.deactivate();
         }
+        */
 
         telemetry.addData("Status", "Gold location found, waiting for start");
         telemetry.update();
@@ -125,6 +123,11 @@ public class AutonOpMode extends LinearOpMode {
         telemetry.addData("Mode", "Knocking off gold piece");
         telemetry.update();
 
+        //robot.test.setPower(1);
+        //sleep(500);
+        //robot.test.setPower(0);
+
+        robot.rotate(90, .5);
 
         /*
         switch (goldLocation) {
@@ -133,8 +136,6 @@ public class AutonOpMode extends LinearOpMode {
             //case RIGHT: rigthFork(); break;
         }
         */
-
-        robot.moveForward(6, .5);
     }
 
     /**
