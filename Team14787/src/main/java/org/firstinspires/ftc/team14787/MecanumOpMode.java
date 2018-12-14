@@ -2,6 +2,8 @@ package org.firstinspires.ftc.team14787;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 @TeleOp(name="Mecanum OpMode", group="Linear Opmode")
@@ -19,7 +21,7 @@ public class MecanumOpMode extends LinearOpMode {
         double r, robotAngle, rightX, p1, p2, p3, p4;
 
         // Instantiate robot with hardware specifications
-        RobotHardware robot = new RobotHardware(telemetry, hardwareMap);
+        RobotHardware robot = new RobotHardware(hardwareMap);
 
         telemetry.addData("Status", "Initialized");
         telemetry.update();
