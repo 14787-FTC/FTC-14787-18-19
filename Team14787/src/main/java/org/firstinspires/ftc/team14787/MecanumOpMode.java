@@ -2,16 +2,14 @@ package org.firstinspires.ftc.team14787;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 @TeleOp(name="Mecanum OpMode", group="Linear Opmode")
 public class MecanumOpMode extends LinearOpMode {
 
     private ElapsedTime runtime;
-    private boolean leftTrigger;
-    private boolean rightTrigger;
+    private boolean dPadUp;
+    private boolean dPadDown;
 
     @Override
     public void runOpMode() throws InterruptedException {
@@ -34,8 +32,8 @@ public class MecanumOpMode extends LinearOpMode {
             r = Math.hypot(gamepad1.left_stick_x, gamepad1.left_stick_y);
             robotAngle = Math.atan2(gamepad1.left_stick_y, gamepad1.left_stick_x) - Math.PI / 4;
             rightX = gamepad1.right_stick_x;
-            rightTrigger = gamepad1.dpad_up;
-            leftTrigger = gamepad1.dpad_down;
+            dPadUp = gamepad1.dpad_up;
+            dPadDown = gamepad1.dpad_down;
 
             p1 = r * Math.cos(robotAngle) - rightX;
             p2 = r * Math.sin(robotAngle) + rightX;
@@ -47,9 +45,9 @@ public class MecanumOpMode extends LinearOpMode {
             robot.backLeftDrive.setPower(p3);
             robot.backRightDrive.setPower(p4);
 
-            if (rightTrigger) {
+            if (dPadUp) {
                 robot.hang.setPower(1);
-            } else if (leftTrigger) {
+            } else if (dPadDown) {
                 robot.hang.setPower(-1);
             } else {
                 robot.hang.setPower(0);
