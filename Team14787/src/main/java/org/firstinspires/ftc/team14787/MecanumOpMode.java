@@ -4,15 +4,20 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
-@TeleOp(name="Mecanum OpMode", group="Linear Opmode")
+import java.util.Arrays;
+import java.util.Collections;
+
+@TeleOp(name="Mecanum Drive", group="Linear Opmode")
 public class MecanumOpMode extends LinearOpMode {
+
+    private final double DRIVE_POWER = 0.5;
 
     private ElapsedTime runtime;
     private boolean dPadUp;
     private boolean dPadDown;
 
     @Override
-    public void runOpMode() throws InterruptedException {
+    public void runOpMode() {
         ElapsedTime runtime = new ElapsedTime();
 
         // Gamepad configuration and calculation variables
@@ -23,6 +28,13 @@ public class MecanumOpMode extends LinearOpMode {
 
         telemetry.addData("Status", "Initialized");
         telemetry.update();
+
+        /*
+        robot.hang.setPower(-1);
+        sleep(1000);
+        */
+        robot.deployment1.setPosition(0);
+        robot.deployment2.setPosition(0);
 
         // Wait for the game to start (driver presses PLAY)
         waitForStart();

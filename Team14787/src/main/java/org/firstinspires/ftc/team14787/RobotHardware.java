@@ -1,10 +1,8 @@
 package org.firstinspires.ftc.team14787;
 
 import com.qualcomm.hardware.motors.NeveRest20Gearmotor;
-import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.hardware.bosch.BNO055IMU;
-import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.hardware.configuration.typecontainers.MotorConfigurationType;
@@ -27,20 +25,13 @@ class RobotHardware {
     Orientation lastAngles;
     double globalAngle;
 
-    PIDController pidRotate;
-    PIDController pidDrive;
-
     final private MotorConfigurationType MOTOR_CONFIG = MotorConfigurationType.getMotorType(NeveRest20Gearmotor.class);
     final private double WHEEL_DIAMTER = 3.937;
-    final private double TICKS_PER_REV = MOTOR_CONFIG.getTicksPerRev();
+    final double TICKS_PER_REV = MOTOR_CONFIG.getTicksPerRev();
     final double INCHES_PER_REV = (WHEEL_DIAMTER * Math.PI) / TICKS_PER_REV;
 
     // Drive train motors
     List<DcMotor> driveTrain;
-    List<DcMotor> frontDrive;
-    List<DcMotor> backDrive;
-    List<DcMotor> leftDrive;
-    List<DcMotor> rightDrive;
     DcMotor frontLeftDrive;
     DcMotor frontRightDrive;
     DcMotor backLeftDrive;
@@ -49,13 +40,7 @@ class RobotHardware {
     // Hang motor
     DcMotor hang;
 
-    // Arm motors
-    DcMotor rotatingArm1;
-    DcMotor rotatingArm2;
-    DcMotor extendingArm;
-
     // Servos
-    CRServo ratchet;
     Servo deployment1;
     Servo deployment2;
 
@@ -93,38 +78,12 @@ class RobotHardware {
         driveTrain.add(this.backLeftDrive);
         driveTrain.add(this.backRightDrive);
 
-        frontDrive = new ArrayList<>();
-        frontDrive.add(this.frontLeftDrive);
-        frontDrive.add(this.frontRightDrive);
-
-        backDrive = new ArrayList<>();
-        backDrive.add(this.frontLeftDrive);
-        backDrive.add(this.frontRightDrive);
-
-        leftDrive = new ArrayList<>();
-        leftDrive.add(this.frontLeftDrive);
-        leftDrive.add(this.frontRightDrive);
-
-        rightDrive = new ArrayList<>();
-        rightDrive.add(this.frontLeftDrive);
-        rightDrive.add(this.frontRightDrive);
-
         hang = hardwareMap.dcMotor.get("hang");
+        hang.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        hang.setPower(0);
 
-        ratchet = hardwareMap.crservo.get("ratchet");
-        //deployment1 = hardwareMap.servo.get("deployment1");
-        //deployment2 = hardwareMap.servo.get("deployment2");
-
-        /*
-        rotatingArm1 = hardwareMap.get(DcMotor.class, "rotatingArm1");
-        rotatingArm2 = hardwareMap.get(DcMotor.class, "rotatingArm2");
-        extendingArm = hardwareMap.get(DcMotor.class, "extndingArm");
-
-        vex1 = hardwareMap.get(CRServo.class, "vex1");
-        vex2 = hardwareMap.get(CRServo.class, "vex2");
-        rev1 = hardwareMap.get(CRServo.class, "rev1");
-        rev2 = hardwareMap.get(CRServo.class, "rev2");
-        */
+        deployment1 = hardwareMap.servo.get("deployment1");
+        deployment2 = hardwareMap.servo.get("deployment2");
     }
 
     /*
@@ -169,7 +128,7 @@ class RobotHardware {
      * @return Sum of the left encoder positons
      */
     double getLeftTicks() {
-        return -(frontLeftDrive.getCurrentPosition() + backLeftDrive.getCurrentPosition());
+        return Math.abs(frontLeftDrive.getCurrentPosition() + backLeftDrive.getCurrentPosition());
     }
 
     /**
@@ -177,7 +136,7 @@ class RobotHardware {
      * @return Sum of the right encoder positons
      */
     double getRightTicks() {
-        return -(frontLeftDrive.getCurrentPosition() + backLeftDrive.getCurrentPosition());
+        return Math.abs(frontLeftDrive.getCurrentPosition() + backLeftDrive.getCurrentPosition());
     }
 
     /**
@@ -185,7 +144,7 @@ class RobotHardware {
      * @return Sum of the right encoder positons
      */
     double getFrontTicks() {
-        return -(frontLeftDrive.getCurrentPosition() + frontRightDrive.getCurrentPosition());
+        return Math.abs(frontLeftDrive.getCurrentPosition() + frontRightDrive.getCurrentPosition());
     }
 
     /**
@@ -193,7 +152,7 @@ class RobotHardware {
      * @return Sum of the right encoder positons
      */
     double getBackTicks() {
-        return -(backLeftDrive.getCurrentPosition() + backRightDrive.getCurrentPosition());
+        return Math.abs(backLeftDrive.getCurrentPosition() + backRightDrive.getCurrentPosition());
     }
 
     /**

@@ -4,6 +4,7 @@ import com.qualcomm.hardware.bosch.BNO055IMU;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.util.Range;
 
 import org.firstinspires.ftc.robotcore.external.ClassFactory;
 import org.firstinspires.ftc.robotcore.external.navigation.VuforiaLocalizer;
@@ -12,32 +13,22 @@ import org.firstinspires.ftc.robotcore.external.tfod.TFObjectDetector;
 
 import java.util.List;
 
-@Autonomous(name="AutonOpMode", group="Autonomous")
-public class AutonOpMode extends LinearOpMode {
-
-    /** TFOD configuration and label */
-    private static final String TFOD_MODEL_ASSET = "RoverRuckus.tflite";
-    private static final String LABEL_GOLD_MINERAL = "Gold Mineral";
-    private static final String LABEL_SILVER_MINERAL = "Silver Mineral";
-
-    /** Vuforia API Key */
-    private static final String VUFORIA_KEY = "AW3RM/7/////AAABmdYUnHQNFUBUtLcj9yNEiU1eT9NilwrFUzWl2FV1fFXafePbmAt1mX9m1x5ZSvHHFXCHKPWLGD2w/X14S4Zie69lPlJzVvT1JE+SJCgDiNabghLZdKai9ITjNLnRliOfaGcGF/sEgr7AP/oZkc4nWetITL3wve+hclRlqcvEJRvixMgBrCluh8F0L58pKEZT6MUVtXes4lEx5agdsWOvgTkLYzxqaSHx8f+sO/qXgAojxRzEdcJ5o2MdgpN9YuZJoSSSvpT1yvPpp5OuVhdH5CpkNNnP0qVHdnvH5QK7g5TC2bKeTvx60DRroVa5/U4ZrMyQqsRnz78gagsFsXqKa+xf1HS324Y5zoUZ/a2UFlfx";
-    private VuforiaLocalizer vuforia;
-    private TFObjectDetector tfod;
+public abstract class AutonOpMode extends LinearOpMode {
 
     /** Robot representation */
-    private RobotHardware robot;
+    RobotHardware robot;
 
     /** Tunable speeds */
-    private static final double DRIVE_POWER = 0.05;
-    private static final double STRAFE_POWER = 0.1;
-    private static final double ROTATE_MIN_POWER = 0.25;
-    private static final double ROTATE_MAX_POWER = 0.4;
+    final double DRIVE_POWER = 0.5;
+    final double DRIVE_MIN_POWER = 0.03;
+    final double STRAFE_POWER = 0.15;
+    final double ROTATE_MIN_POWER = 0.1;
+    final double ROTATE_MAX_POWER = 0.5;
 
     /** PID Constants */
-    final private double driveKp  = .05;
+    final private double driveKp  = .0002;
     final private double driveKi  = 0;
-    final private double driveKd  = 0;
+    final private double driveKd  = 0.0001;
     final private double rotateKp = .005;
     final private double rotateKi = 0;
     final private double rotateKd = 0;
@@ -48,10 +39,22 @@ public class AutonOpMode extends LinearOpMode {
     private final PIDController pidDrive = new PIDController(driveKp, driveKi, driveKd);
     private final PIDController pidRotate = new PIDController(rotateKp, rotateKi, rotateKd);
 
+    /** TFOD configuration and label */
+    private static final String TFOD_MODEL_ASSET = "RoverRuckus.tflite";
+    static final String LABEL_GOLD_MINERAL = "Gold Mineral";
+    static final String LABEL_SILVER_MINERAL = "Silver Mineral";
+
+    /** Vuforia API Key */
+    private static final String VUFORIA_KEY = "AW3RM/7/////AAABmdYUnHQNFUBUtLcj9yNEiU1eT9NilwrFUzWl2FV1fFXafePbmAt1mX9m1x5ZSvHHFXCHKPWLGD2w/X14S4Zie69lPlJzVvT1JE+SJCgDiNabghLZdKai9ITjNLnRliOfaGcGF/sEgr7AP/oZkc4nWetITL3wve+hclRlqcvEJRvixMgBrCluh8F0L58pKEZT6MUVtXes4lEx5agdsWOvgTkLYzxqaSHx8f+sO/qXgAojxRzEdcJ5o2MdgpN9YuZJoSSSvpT1yvPpp5OuVhdH5CpkNNnP0qVHdnvH5QK7g5TC2bKeTvx60DRroVa5/U4ZrMyQqsRnz78gagsFsXqKa+xf1HS324Y5zoUZ/a2UFlfx";
+    VuforiaLocalizer vuforia;
+    TFObjectDetector tfod;
+
     /** Mineral location enumerable */
     enum MineralLocation {
         LEFT, CENTER, RIGHT
     }
+
+    MineralLocation goldLocation;
 
     @Override
     public void runOpMode() {
@@ -90,10 +93,11 @@ public class AutonOpMode extends LinearOpMode {
 
         // Instantiate robot subsystem
         robot = new RobotHardware(hardwareMap, imu);
+        robot.deployment1.setPosition(0);
+        robot.deployment2.setPosition(1);
+        robot.hang.setPower(-1);
 
         // Sampling with TFOD
-        MineralLocation goldLocation = null;
-
         // Activate Tensor Flow Object Detection.
         if (tfod != null) {
             tfod.activate();
@@ -106,25 +110,19 @@ public class AutonOpMode extends LinearOpMode {
                 if (updatedRecognitions != null) {
                     telemetry.addData("Status", "# Object Detected: %d", updatedRecognitions.size());
                     if (updatedRecognitions.size() == 2) {
-                        Recognition mineral1 = updatedRecognitions.get(0);
-                        Recognition mineral2 = updatedRecognitions.get(1);
+                            Recognition mineral1 = updatedRecognitions.get(0);
+                            Recognition mineral2 = updatedRecognitions.get(1);
 
-                        if (mineral1.getLabel().equals(LABEL_GOLD_MINERAL)) {
-                            if (mineral1.getLeft() < mineral2.getLeft()) {
-                                goldLocation = MineralLocation.LEFT;
+                            if (mineral1.getLabel().equals(LABEL_GOLD_MINERAL) || mineral2.getLabel().equals(LABEL_GOLD_MINERAL)) {
+                                if (mineral1.getLabel().equals(LABEL_GOLD_MINERAL) && mineral1.getRight() < mineral2.getRight()) {
+                                    goldLocation = MineralLocation.CENTER;
+                                } else {
+                                    goldLocation = MineralLocation.LEFT;
+                                }
                             } else {
-                                goldLocation = MineralLocation.CENTER;
+                                goldLocation = MineralLocation.RIGHT;
                             }
-                        } else if (mineral2.getLabel().equals(LABEL_GOLD_MINERAL)) {
-                            if (mineral2.getLeft() < mineral1.getLeft()) {
-                                goldLocation = MineralLocation.LEFT;
-                            } else {
-                                goldLocation = MineralLocation.CENTER;
-                            }
-                        } else {
-                            goldLocation = MineralLocation.RIGHT;
                         }
-                    }
                     telemetry.update();
                 }
             }
@@ -134,57 +132,14 @@ public class AutonOpMode extends LinearOpMode {
         if (tfod != null) tfod.deactivate();
 
         telemetry.addData("Status", "Gold location found, waiting for start");
+        telemetry.addData("Data", "Gold located at %s", goldLocation.toString());
         telemetry.update();
+
+        goldLocation = MineralLocation.CENTER;
 
         // Wait for the game to start (driver presses PLAY)
         waitForStart();
-
-        telemetry.addData("Mode", "Knocking off gold piece");
-        telemetry.update();
-
-        //moveToEncoderPosition(robot.hang, 1251);
-
-        // Detach from hang
-        robot.hang.setPower(-.5);
-        robot.ratchet.setPower(1);
-        sleep(500);
-        robot.ratchet.setPower(0);
-        robot.hang.setPower(1);
-
-        // Fork behavior based off of detected gold position, eventually returns to center
-        switch (goldLocation) {
-            case LEFT: leftDetected(); break;
-            case CENTER: centerDetected(); break;
-            case RIGHT: rightDetected(); break;
-        }
-
     }
-
-    /**
-     * Movement methods based on goldLocation
-     */
-    private void leftDetected() {
-        moveForward(12, DRIVE_POWER);
-        strafeLeft(20, STRAFE_POWER);
-        moveForward(12, DRIVE_POWER);
-        moveBackward(12, DRIVE_POWER);
-        rotate(90, ROTATE_MIN_POWER, ROTATE_MIN_POWER);
-    }
-
-    private void centerDetected() {
-        moveForward(24, DRIVE_POWER);
-        moveBackward(12, DRIVE_POWER);
-    }
-
-    private void rightDetected() {
-        moveForward(12, DRIVE_POWER);
-        strafeRight(20, STRAFE_POWER);
-        moveForward(12, DRIVE_POWER);
-        moveBackward(12, DRIVE_POWER);
-        rotate(90, ROTATE_MIN_POWER, ROTATE_MIN_POWER);
-    }
-
-    /* Basic movement API */
 
     /**
      * Rotate a motor to a desired encoder position
@@ -192,25 +147,127 @@ public class AutonOpMode extends LinearOpMode {
      * @param power Power at which to turn motor
      * @param pos Desired ticks
      */
-    private void moveToEncoderPosition(DcMotor motor, double power, int pos) {
+    void moveToEncoderPosition(DcMotor motor, double power, int pos) {
         motor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        motor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        if (motor.getCurrentPosition() > pos) {
-            telemetry.addData("Moving down", "Target Position: %d\nCurrent Position: %d", pos, motor.getCurrentPosition());
-            telemetry.update();
-            motor.setPower(-1);
-            while (motor.getCurrentPosition() > pos && opModeIsActive()) {
-                sleep(10);
+        motor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        motor.setTargetPosition(pos);
+        motor.setPower(power);
+    }
+
+    /**
+     * Move the robot forward a amount, treating the drive as a tank train
+     * @param distance Distance, in inches, to move forward
+     * @param maxPower Power at which to move motors
+     */
+    void moveForward(double distance, double maxPower) {
+        distance = distance - 1;
+
+        robot.resetEncoders();
+        robot.resetAngle();
+
+        // Set up parameters for driving in a straight line.
+        pidDrive.reset();
+        pidDrive.setSetpoint(0);
+        pidDrive.setOutputRange(0, maxPower);
+        pidDrive.setInputRange(-90, 90);
+        pidDrive.enable();
+
+        double power = 0, error, prevError = 0, p, i = 0, d;
+
+        double leftEncSum  = robot.calculateLeftTicks(distance);
+        double rightEncSum = robot.calculateRightTicks(distance);
+
+        telemetry.addData("Status", "Moving forward %f inches\nDesired left encoder position sum = %f\nDesired right encoder position sum = %f", distance, leftEncSum, rightEncSum);
+
+        while (robot.getLeftTicks() < leftEncSum && robot.getRightTicks() < rightEncSum && opModeIsActive()) {
+            if (-robot.frontLeftDrive.getCurrentPosition() < robot.TICKS_PER_REV / 2 && power < maxPower) {
+                power = Math.abs(-robot.frontLeftDrive.getCurrentPosition() / (robot.TICKS_PER_REV / 2) * maxPower);
+            } else {
+                error = leftEncSum - robot.getLeftTicks();
+                p = error;
+                i = i + error;
+                d = p - prevError;
+                power = Range.clip((driveKp * p + driveKi * i + driveKd * d), 0, maxPower);
+                //telemetry.addData("PID", "Power: %f\nError: %f, prevError: %f\nPID: %f, P: %f, I: %f, D: %f", power, error, prevError, driveKp * p + driveKi * i + driveKd * d, p, i ,d);
+                prevError = error;
             }
-        } else {
-            telemetry.addData("Moving up", "Target Position: %d\nCurrent Position: %d", pos, motor.getCurrentPosition());
-            telemetry.update();
-            motor.setPower(1);
-            while (motor.getCurrentPosition() < pos && opModeIsActive()) {
-                sleep(10);
+
+            if (Math.abs(power) < DRIVE_MIN_POWER) {
+                power = DRIVE_MIN_POWER;
             }
+
+            double angle = robot.getAngle();
+            correction = pidDrive.performPID(angle) / 2;
+
+            telemetry.addData("2 IMU Heading", robot.lastAngles.firstAngle);
+            telemetry.addData("3 Global Heading", robot.globalAngle);
+            telemetry.addData("4 Correction", correction);
+
+            robot.setLeftPower(-power + correction);
+            robot.setRightPower(-power - correction);
+            telemetry.update();
         }
-        motor.setPower(0);
+
+        robot.setDrivePower(0);
+        sleep(100);
+    }
+
+    /**
+     * Move the robot forward a amount, treating the drive as a tank train
+     * @param distance Distance, in inches, to move forward
+     * @param maxPower Power at which to move motors
+     */
+    void moveBackward(double distance, double maxPower) {
+        distance = distance - 1;
+
+        robot.resetEncoders();
+        robot.resetAngle();
+
+        // Set up parameters for driving in a straight line.
+        pidDrive.reset();
+        pidDrive.setSetpoint(0);
+        pidDrive.setOutputRange(0, maxPower);
+        pidDrive.setInputRange(-90, 90);
+        pidDrive.enable();
+
+        double power = 0, error, prevError = 0, p, i = 0, d;
+
+        double leftEncSum  = robot.calculateLeftTicks(distance);
+        double rightEncSum = robot.calculateRightTicks(distance);
+
+        telemetry.addData("Status", "Moving forward %f inches\nDesired left encoder position sum = %f\nDesired right encoder position sum = %f", distance, leftEncSum, rightEncSum);
+
+        while (robot.getLeftTicks() < leftEncSum && robot.getRightTicks() < rightEncSum && opModeIsActive()) {
+            if (robot.frontLeftDrive.getCurrentPosition() < robot.TICKS_PER_REV / 2 && power < maxPower) {
+                power = Math.abs(robot.frontLeftDrive.getCurrentPosition() / (robot.TICKS_PER_REV / 2) * maxPower);
+            } else {
+                error = leftEncSum - robot.getLeftTicks();
+                p = error;
+                i = i + error;
+                d = p - prevError;
+                power = Range.clip((driveKp * p + driveKi * i + driveKd * d), 0, maxPower);
+                //telemetry.addData("PID", "Power: %f\nError: %f, prevError: %f\nPID: %f, P: %f, I: %f, D: %f", power, error, prevError, driveKp * p + driveKi * i + driveKd * d, p, i ,d);
+                prevError = error;
+            }
+
+            if (Math.abs(power) < DRIVE_MIN_POWER) {
+                power = DRIVE_MIN_POWER;
+            }
+
+            double angle = robot.getAngle();
+            correction = pidDrive.performPID(angle) / 2;
+
+            telemetry.addData("2 IMU Heading", robot.lastAngles.firstAngle);
+            telemetry.addData("3 Global Heading", robot.globalAngle);
+            telemetry.addData("4 Correction", correction);
+
+            robot.setLeftPower(power + correction);
+            robot.setRightPower(power - correction);
+            telemetry.update();
+        }
+
+        robot.setDrivePower(0);
+        sleep(100);
     }
 
     /**
@@ -219,7 +276,7 @@ public class AutonOpMode extends LinearOpMode {
      * @param minPower Minimum power to rotate motors for adjustments
      * @param maxPower Maximum power at which to run motors
      */
-    private void rotate(int degrees, double minPower, double maxPower) {
+    void rotate(int degrees, double minPower, double maxPower) {
         // restart imu angle tracking.
         robot.resetAngle();
 
@@ -284,7 +341,7 @@ public class AutonOpMode extends LinearOpMode {
      * @param distance Distance, in inches, to strafe
      * @param power Power at which to move motors
      */
-    private void strafeLeft(double distance, double power) {
+    void strafeLeft(double distance, double power) {
         distance = distance + 1;
         // Set up parameters for driving in a straight line.
         pidDrive.setSetpoint(0);
@@ -311,7 +368,7 @@ public class AutonOpMode extends LinearOpMode {
             robot.setLeftPower(-power + correction);
             robot.setRightPower(-power);
 
-            telemetry.addData("Moved forward %f inches", robot.getLeftTicks() * robot.INCHES_PER_REV);
+            telemetry.addData("Status", "Moved forward %f inches", robot.getLeftTicks() * robot.INCHES_PER_REV);
             telemetry.addData("Status", "leftEncSum: %f, frontEncSum: %f\nbackEncSum: %f, rightTicks: %f", frontEncSum, backEncSum, robot.getLeftTicks(), robot.getRightTicks());
             telemetry.update();
         }
@@ -325,7 +382,7 @@ public class AutonOpMode extends LinearOpMode {
      * @param distance Distance, in inches, to strafe
      * @param power Power at which to move motors
      */
-    private void strafeRight(double distance, double power) {
+    void strafeRight(double distance, double power) {
         distance = distance + 1;
         // Set up parameters for driving in a straight line.
         pidDrive.setSetpoint(0);
@@ -352,64 +409,13 @@ public class AutonOpMode extends LinearOpMode {
             robot.setLeftPower(-power);
             robot.setRightPower(-power + correction);
 
-            telemetry.addData("Moved forward %f inches", robot.getLeftTicks() * robot.INCHES_PER_REV);
+            telemetry.addData("Status","Moved forward %f inches", robot.getLeftTicks() * robot.INCHES_PER_REV);
             telemetry.addData("Status", "leftEncSum: %f, frontEncSum: %f\nbackEncSum: %f, rightTicks: %f", frontEncSum, backEncSum, robot.getLeftTicks(), robot.getRightTicks());
             telemetry.update();
         }
 
         robot.toggleRightStrafe();
         robot.setDrivePower(0);
-    }
-
-    /**
-     * Move the robot forward a amount, treating the drive as a tank train
-     * @param distance Distance, in inches, to move forward
-     * @param power Power at which to move motors
-     */
-    private void moveForward(double distance, double power) {
-        distance = distance - 1;
-
-        // Set up parameters for driving in a straight line.
-        pidDrive.setSetpoint(0);
-        pidDrive.setOutputRange(0, power);
-        pidDrive.setInputRange(-90, 90);
-        pidDrive.enable();
-
-        robot.resetEncoders();
-
-        double leftEncSum  = robot.calculateLeftTicks(distance);
-        double rightEncSum = robot.calculateRightTicks(distance);
-
-        telemetry.addData("Status", "Moving forward %f inches\nDesired left encoder position sum = %f\nDesired right encoder position sum = %f", distance, leftEncSum, rightEncSum);
-        telemetry.update();
-
-        while (robot.getLeftTicks() < leftEncSum && robot.getRightTicks() < rightEncSum && opModeIsActive()) {
-            correction = pidDrive.performPID(robot.getAngle());
-
-            telemetry.addData("1 IMU Heading", robot.lastAngles.firstAngle);
-            telemetry.addData("2 Global Heading", robot.globalAngle);
-            telemetry.addData("3 Correction", correction);
-
-            robot.setLeftPower(-power + correction);
-            robot.setRightPower(-power);
-
-            telemetry.addData("Moved forward %f inches", robot.getLeftTicks() * robot.INCHES_PER_REV);
-            telemetry.addData("Status" , "leftEncSum: %f, rightEncSum: %f\nleftTicks: %f, rightTicks: %f", leftEncSum, rightEncSum, robot.getLeftTicks(), robot.getRightTicks());
-            telemetry.update();
-        }
-
-        robot.setDrivePower(0);
-    }
-
-    /**
-     * Move the robot forward a amount, treating the drive as a tank train
-     * @param distance Distance, in inches, to move forward
-     * @param power Power at which to move motors
-     */
-    private void moveBackward(double distance, double power) {
-        reverseDrive();
-        moveForward(distance, power);
-        reverseDrive();
     }
 
     /**
@@ -461,5 +467,4 @@ public class AutonOpMode extends LinearOpMode {
         tfod = ClassFactory.getInstance().createTFObjectDetector(tfodParameters, vuforia);
         tfod.loadModelFromAsset(TFOD_MODEL_ASSET, LABEL_GOLD_MINERAL, LABEL_SILVER_MINERAL);
     }
-
 }
