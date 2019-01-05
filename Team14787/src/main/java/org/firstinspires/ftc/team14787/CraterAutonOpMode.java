@@ -2,28 +2,24 @@ package org.firstinspires.ftc.team14787;
 
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 
+/**
+ * Autonomous OpMode for single sample, starting at the crater
+ */
 @Autonomous(name="Crater Auton", group="Autonomous")
 public class CraterAutonOpMode extends AutonOpMode {
 
-    private final double STRAFE_POWER = 0.1;
-
+    /**
+     * Run custom movements for this mode
+     */
     @Override
     public void runOpMode() {
+        // Initial autonomous config/movement
         super.runOpMode();
-
-        robot.hang.setPower(0);
-        sleep(2000);
-        robot.hang.setPower(1);
-        sleep(500);
-        robot.hang.setPower(0);
 
         telemetry.addData("Mode", "Knocking off gold piece");
         telemetry.update();
 
-        moveForward(8, 0.05);
-        strafeRight(13, STRAFE_POWER);
-
-        // Fork behavior based off of detected gold position, eventually returns to center
+        // Fork behavior based off of detected gold position, eventually returns to equivocal position
         switch (goldLocation) {
             case LEFT: leftDetected(); break;
             case CENTER: centerDetected(); break;
@@ -36,14 +32,10 @@ public class CraterAutonOpMode extends AutonOpMode {
         // Deployment1 = 0-0.35, Deployment2 = 1-0.65
         robot.deployment1.setPosition(0.35);
         moveBackward(87, DRIVE_POWER);
-
-        while (opModeIsActive()) {
-            sleep(1000);
-        }
     }
 
     /**
-     * Movement fork methods based on goldLocation
+     * Forked movement methods based on goldLocation
      */
     private void leftDetected() {
         moveForward(5, DRIVE_POWER);

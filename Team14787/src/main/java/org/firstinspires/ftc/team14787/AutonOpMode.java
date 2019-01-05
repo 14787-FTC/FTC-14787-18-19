@@ -13,15 +13,22 @@ import org.firstinspires.ftc.robotcore.external.tfod.TFObjectDetector;
 
 import java.util.List;
 
+/**
+ * Abstract Autonomous OpMode which automatically sets up a child OpMode,
+ * contains the instantiation of all required objects, the robot configuration,
+ * a simple movement API for utilisation by the children, and all movement
+ * (speed/PID) constants
+ */
 public abstract class AutonOpMode extends LinearOpMode {
 
     /** Robot representation */
     RobotHardware robot;
+    Vision vision;
 
     /** Tunable speeds */
     final double DRIVE_POWER = 0.5;
-    final double DRIVE_MIN_POWER = 0.03;
-    final double STRAFE_POWER = 0.15;
+    private final double DRIVE_MIN_POWER = 0.03;
+    final double STRAFE_POWER = 0.1;
     final double ROTATE_MIN_POWER = 0.1;
     final double ROTATE_MAX_POWER = 0.5;
 
@@ -39,34 +46,15 @@ public abstract class AutonOpMode extends LinearOpMode {
     private final PIDController pidDrive = new PIDController(driveKp, driveKi, driveKd);
     private final PIDController pidRotate = new PIDController(rotateKp, rotateKi, rotateKd);
 
-    /** TFOD configuration and label */
-    private static final String TFOD_MODEL_ASSET = "RoverRuckus.tflite";
-    static final String LABEL_GOLD_MINERAL = "Gold Mineral";
-    static final String LABEL_SILVER_MINERAL = "Silver Mineral";
-
-    /** Vuforia API Key */
-    private static final String VUFORIA_KEY = "AW3RM/7/////AAABmdYUnHQNFUBUtLcj9yNEiU1eT9NilwrFUzWl2FV1fFXafePbmAt1mX9m1x5ZSvHHFXCHKPWLGD2w/X14S4Zie69lPlJzVvT1JE+SJCgDiNabghLZdKai9ITjNLnRliOfaGcGF/sEgr7AP/oZkc4nWetITL3wve+hclRlqcvEJRvixMgBrCluh8F0L58pKEZT6MUVtXes4lEx5agdsWOvgTkLYzxqaSHx8f+sO/qXgAojxRzEdcJ5o2MdgpN9YuZJoSSSvpT1yvPpp5OuVhdH5CpkNNnP0qVHdnvH5QK7g5TC2bKeTvx60DRroVa5/U4ZrMyQqsRnz78gagsFsXqKa+xf1HS324Y5zoUZ/a2UFlfx";
-    VuforiaLocalizer vuforia;
-    TFObjectDetector tfod;
-
-    /** Mineral location enumerable */
-    enum MineralLocation {
-        LEFT, CENTER, RIGHT
-    }
-
+    /** Llocation of the initial gold mineral */
     MineralLocation goldLocation;
 
+    /**
+     * Initial logic for all autonomous OpModes, configure robot hardware
+     * and vision, start the hang, and locate the first gold sample
+     */
     @Override
     public void runOpMode() {
-        // The TFObjectDetector uses the camera frames from the VuforiaLocalizer, so we create that
-        // first.
-        initVuforia();
-
-        if (ClassFactory.getInstance().canCreateTFObjectDetector()) {
-            initTfod();
-        } else {
-            telemetry.addData("Status", "This device is not compatible with TFOD");
-        }
 
         // Configure IMU
         BNO055IMU.Parameters parameters = new BNO055IMU.Parameters();
@@ -91,54 +79,37 @@ public abstract class AutonOpMode extends LinearOpMode {
         telemetry.addData("IMU Calibration status", imu.getCalibrationStatus().toString());
         telemetry.update();
 
+        vision = new Vision(hardwareMap);
+
         // Instantiate robot subsystem
         robot = new RobotHardware(hardwareMap, imu);
         robot.deployment1.setPosition(0);
         robot.deployment2.setPosition(1);
         robot.hang.setPower(-1);
 
-        // Sampling with TFOD
-        // Activate Tensor Flow Object Detection.
-        if (tfod != null) {
-            tfod.activate();
-        }
-
         // Detect relative gold mineral position via recognizing the two far left minerals
-        while (goldLocation == null) {
-            if (tfod != null) {
-                List<Recognition> updatedRecognitions = tfod.getUpdatedRecognitions();
-                if (updatedRecognitions != null) {
-                    telemetry.addData("Status", "# Object Detected: %d", updatedRecognitions.size());
-                    if (updatedRecognitions.size() == 2) {
-                            Recognition mineral1 = updatedRecognitions.get(0);
-                            Recognition mineral2 = updatedRecognitions.get(1);
-
-                            if (mineral1.getLabel().equals(LABEL_GOLD_MINERAL) || mineral2.getLabel().equals(LABEL_GOLD_MINERAL)) {
-                                if (mineral1.getLabel().equals(LABEL_GOLD_MINERAL) && mineral1.getRight() < mineral2.getRight()) {
-                                    goldLocation = MineralLocation.CENTER;
-                                } else {
-                                    goldLocation = MineralLocation.LEFT;
-                                }
-                            } else {
-                                goldLocation = MineralLocation.RIGHT;
-                            }
-                        }
-                    telemetry.update();
-                }
-            }
+        while (goldLocation == null && opModeIsActive()) {
+            goldLocation = vision.getGoldLocation();
         }
 
-        // Deactive TFOD
-        if (tfod != null) tfod.deactivate();
+        // Deactive TFOD to preserve memory space
+        vision.disableDetection();
 
         telemetry.addData("Status", "Gold location found, waiting for start");
         telemetry.addData("Data", "Gold located at %s", goldLocation.toString());
         telemetry.update();
 
-        goldLocation = MineralLocation.CENTER;
-
         // Wait for the game to start (driver presses PLAY)
         waitForStart();
+
+        // Detach from hang and remove hook
+        robot.hang.setPower(0);
+        sleep(2000);
+        robot.hang.setPower(1);
+        sleep(500);
+        robot.hang.setPower(0);
+        moveForward(8, 0.05);
+        strafeRight(13, STRAFE_POWER);
     }
 
     /**
@@ -172,6 +143,8 @@ public abstract class AutonOpMode extends LinearOpMode {
         pidDrive.setInputRange(-90, 90);
         pidDrive.enable();
 
+        // Values for custom PID implementation
+        // TODO: Implement using dedicated PID controller
         double power = 0, error, prevError = 0, p, i = 0, d;
 
         double leftEncSum  = robot.calculateLeftTicks(distance);
@@ -179,7 +152,9 @@ public abstract class AutonOpMode extends LinearOpMode {
 
         telemetry.addData("Status", "Moving forward %f inches\nDesired left encoder position sum = %f\nDesired right encoder position sum = %f", distance, leftEncSum, rightEncSum);
 
+        // Loop until both left and right tick values match their respective sum, thus reaching the target
         while (robot.getLeftTicks() < leftEncSum && robot.getRightTicks() < rightEncSum && opModeIsActive()) {
+            // During the first half rotation, speed up slowly to maxSpeed then initiate PID control
             if (-robot.frontLeftDrive.getCurrentPosition() < robot.TICKS_PER_REV / 2 && power < maxPower) {
                 power = Math.abs(-robot.frontLeftDrive.getCurrentPosition() / (robot.TICKS_PER_REV / 2) * maxPower);
             } else {
@@ -187,27 +162,27 @@ public abstract class AutonOpMode extends LinearOpMode {
                 p = error;
                 i = i + error;
                 d = p - prevError;
-                power = Range.clip((driveKp * p + driveKi * i + driveKd * d), 0, maxPower);
+                power = Range.clip((driveKp * p + driveKi * i + driveKd * d), DRIVE_MIN_POWER, maxPower);
                 //telemetry.addData("PID", "Power: %f\nError: %f, prevError: %f\nPID: %f, P: %f, I: %f, D: %f", power, error, prevError, driveKp * p + driveKi * i + driveKd * d, p, i ,d);
                 prevError = error;
             }
 
-            if (Math.abs(power) < DRIVE_MIN_POWER) {
-                power = DRIVE_MIN_POWER;
-            }
+            // Calculate adjusted correction using IMU and
+            // divide by 2 to apply to both sides of the drive train
+            correction = pidDrive.performPID(robot.getAngle()) / 2;
 
-            double angle = robot.getAngle();
-            correction = pidDrive.performPID(angle) / 2;
+            // Set the powers of both sides of the drive train
+            robot.setLeftPower(-power + correction);
+            robot.setRightPower(-power - correction);
 
+            // Provide debugging data
             telemetry.addData("2 IMU Heading", robot.lastAngles.firstAngle);
             telemetry.addData("3 Global Heading", robot.globalAngle);
             telemetry.addData("4 Correction", correction);
-
-            robot.setLeftPower(-power + correction);
-            robot.setRightPower(-power - correction);
             telemetry.update();
         }
 
+        // Wait for wheels to completely stop
         robot.setDrivePower(0);
         sleep(100);
     }
@@ -230,6 +205,8 @@ public abstract class AutonOpMode extends LinearOpMode {
         pidDrive.setInputRange(-90, 90);
         pidDrive.enable();
 
+        // Values for custom PID implementation
+        // TODO: Implement using dedicated PID controller
         double power = 0, error, prevError = 0, p, i = 0, d;
 
         double leftEncSum  = robot.calculateLeftTicks(distance);
@@ -237,7 +214,9 @@ public abstract class AutonOpMode extends LinearOpMode {
 
         telemetry.addData("Status", "Moving forward %f inches\nDesired left encoder position sum = %f\nDesired right encoder position sum = %f", distance, leftEncSum, rightEncSum);
 
+        // Loop until both left and right tick values match their respective sum, thus reaching the target
         while (robot.getLeftTicks() < leftEncSum && robot.getRightTicks() < rightEncSum && opModeIsActive()) {
+            // During the first half rotation, speed up slowly to maxSpeed then initiate PID control
             if (robot.frontLeftDrive.getCurrentPosition() < robot.TICKS_PER_REV / 2 && power < maxPower) {
                 power = Math.abs(robot.frontLeftDrive.getCurrentPosition() / (robot.TICKS_PER_REV / 2) * maxPower);
             } else {
@@ -245,27 +224,27 @@ public abstract class AutonOpMode extends LinearOpMode {
                 p = error;
                 i = i + error;
                 d = p - prevError;
-                power = Range.clip((driveKp * p + driveKi * i + driveKd * d), 0, maxPower);
+                power = Range.clip((driveKp * p + driveKi * i + driveKd * d), DRIVE_MIN_POWER, maxPower);
                 //telemetry.addData("PID", "Power: %f\nError: %f, prevError: %f\nPID: %f, P: %f, I: %f, D: %f", power, error, prevError, driveKp * p + driveKi * i + driveKd * d, p, i ,d);
                 prevError = error;
             }
 
-            if (Math.abs(power) < DRIVE_MIN_POWER) {
-                power = DRIVE_MIN_POWER;
-            }
+            // Calculate adjusted correction using IMU and
+            // divide by 2 to apply to both sides of the drive train
+            correction = pidDrive.performPID(robot.getAngle()) / 2;
 
-            double angle = robot.getAngle();
-            correction = pidDrive.performPID(angle) / 2;
+            // Set the powers of both sides of the drive train
+            robot.setLeftPower(power + correction);
+            robot.setRightPower(power - correction);
 
+            // Provide debugging data
             telemetry.addData("2 IMU Heading", robot.lastAngles.firstAngle);
             telemetry.addData("3 Global Heading", robot.globalAngle);
             telemetry.addData("4 Correction", correction);
-
-            robot.setLeftPower(power + correction);
-            robot.setRightPower(power - correction);
             telemetry.update();
         }
 
+        // Wait for wheels to completely stop
         robot.setDrivePower(0);
         sleep(100);
     }
@@ -338,6 +317,7 @@ public abstract class AutonOpMode extends LinearOpMode {
 
     /**
      * Strafe left with a similar mechanism to forward movement
+     * TODO: Implement movement PID
      * @param distance Distance, in inches, to strafe
      * @param power Power at which to move motors
      */
@@ -349,36 +329,38 @@ public abstract class AutonOpMode extends LinearOpMode {
         pidDrive.setInputRange(-90, 90);
         pidDrive.enable();
 
+        // Reset encoder values and toggle left strafe mode
         robot.resetEncoders();
         robot.toggleLeftStrafe();
 
+        // Encoder values at which to stop movement
         double frontEncSum = robot.calculateFrontTicks(distance);
         double backEncSum  = robot.calculateBackTicks(distance);
 
-        telemetry.addData("Status", "Moving forward %f inches\nDesired front encoder position sum = %f\nDesired left encoder position sum = %f", distance, frontEncSum, backEncSum);
-        telemetry.update();
-
+        // Loop until both front and back tick values match their respective sum, thus reaching the target
         while (robot.getFrontTicks() < frontEncSum && robot.getBackTicks() < backEncSum && opModeIsActive()) {
             correction = pidDrive.performPID(robot.getAngle());
 
-            telemetry.addData("1 IMU Heading", robot.lastAngles.firstAngle);
-            telemetry.addData("2 Global Heading", robot.globalAngle);
-            telemetry.addData("3 Correction", correction);
-
+            // Set the powers of both sides of the drive train
             robot.setLeftPower(-power + correction);
             robot.setRightPower(-power);
 
-            telemetry.addData("Status", "Moved forward %f inches", robot.getLeftTicks() * robot.INCHES_PER_REV);
-            telemetry.addData("Status", "leftEncSum: %f, frontEncSum: %f\nbackEncSum: %f, rightTicks: %f", frontEncSum, backEncSum, robot.getLeftTicks(), robot.getRightTicks());
+            // Provide debugging data
+            telemetry.addData("1 IMU Heading", robot.lastAngles.firstAngle);
+            telemetry.addData("2 Global Heading", robot.globalAngle);
+            telemetry.addData("3 Correction", correction);
             telemetry.update();
         }
 
+        // De-toggle left strafe and wait for wheels to finish spinning
         robot.toggleLeftStrafe();
         robot.setDrivePower(0);
+        sleep(100);
     }
 
     /**
      * Strafe right with a similar mechanism to forward movement
+     * TODO: Implement movement PID
      * @param distance Distance, in inches, to strafe
      * @param power Power at which to move motors
      */
@@ -390,32 +372,34 @@ public abstract class AutonOpMode extends LinearOpMode {
         pidDrive.setInputRange(-90, 90);
         pidDrive.enable();
 
+        // Reset encoder values and toggle right strafe mode
         robot.resetEncoders();
         robot.toggleRightStrafe();
 
+        // Encoder values at which to stop movement
         double frontEncSum = robot.calculateFrontTicks(distance);
         double backEncSum  = robot.calculateBackTicks(distance);
 
-        telemetry.addData("Status", "Moving forward %f inches\nDesired front encoder position sum = %f\nDesired left encoder position sum = %f", distance, frontEncSum, backEncSum);
-        telemetry.update();
-
         while (robot.getFrontTicks() < frontEncSum && robot.getBackTicks() < backEncSum && opModeIsActive()) {
+            // Calculate adjusted correction using IMU and
+            // divide by 2 to apply to both sides of the drive train
             correction = pidDrive.performPID(robot.getAngle());
 
-            telemetry.addData("1 IMU Heading", robot.lastAngles.firstAngle);
-            telemetry.addData("2 Global Heading", robot.globalAngle);
-            telemetry.addData("3 Correction", correction);
-
+            // Set the powers of both sides of the drive train
             robot.setLeftPower(-power);
             robot.setRightPower(-power + correction);
 
-            telemetry.addData("Status","Moved forward %f inches", robot.getLeftTicks() * robot.INCHES_PER_REV);
-            telemetry.addData("Status", "leftEncSum: %f, frontEncSum: %f\nbackEncSum: %f, rightTicks: %f", frontEncSum, backEncSum, robot.getLeftTicks(), robot.getRightTicks());
+            // Provide debugging data
+            telemetry.addData("1 IMU Heading", robot.lastAngles.firstAngle);
+            telemetry.addData("2 Global Heading", robot.globalAngle);
+            telemetry.addData("3 Correction", correction);
             telemetry.update();
         }
 
+        // De-toggle right strafe and wait for wheels to finish spinning
         robot.toggleRightStrafe();
         robot.setDrivePower(0);
+        sleep(100);
     }
 
     /**
@@ -437,34 +421,5 @@ public abstract class AutonOpMode extends LinearOpMode {
         } else {
             motor.setDirection(DcMotor.Direction.FORWARD);
         }
-    }
-
-    /**
-     * Initialize the Vuforia localization engine
-     */
-    private void initVuforia() {
-        /*
-         * Configure Vuforia by creating a Parameter object, and passing it to the Vuforia engine
-         */
-        VuforiaLocalizer.Parameters parameters = new VuforiaLocalizer.Parameters();
-
-        parameters.vuforiaLicenseKey = VUFORIA_KEY;
-        parameters.cameraDirection = VuforiaLocalizer.CameraDirection.BACK;
-
-        //  Instantiate the Vuforia engine
-        vuforia = ClassFactory.getInstance().createVuforia(parameters);
-
-        // Loading trackables is not necessary for the Tensor Flow Object Detection engine
-    }
-
-    /**
-     * Initialize the Tensor Flow Object Detection engine
-     */
-    private void initTfod() {
-        int tfodMonitorViewId = hardwareMap.appContext.getResources().getIdentifier(
-                "tfodMonitorViewId", "id", hardwareMap.appContext.getPackageName());
-        TFObjectDetector.Parameters tfodParameters = new TFObjectDetector.Parameters(tfodMonitorViewId);
-        tfod = ClassFactory.getInstance().createTFObjectDetector(tfodParameters, vuforia);
-        tfod.loadModelFromAsset(TFOD_MODEL_ASSET, LABEL_GOLD_MINERAL, LABEL_SILVER_MINERAL);
     }
 }

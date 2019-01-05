@@ -3,15 +3,21 @@ package org.firstinspires.ftc.team14787;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 
+/**
+ * Autonomous OpMode used to complete simple motor tests
+ */
 @Autonomous(name="Motor Testing", group="Autonomous")
 public class TestingOpMode extends OpMode {
+    /** Robot representation */
     private RobotHardware robot;
 
+    /** Initialize robot hardware */
     @Override
     public void init() {
         robot = new RobotHardware(hardwareMap);
     }
 
+    /** Complete tests and provide deubgging information */
     @Override
     public void loop() {
         robot.deployment2.setPosition(.65);

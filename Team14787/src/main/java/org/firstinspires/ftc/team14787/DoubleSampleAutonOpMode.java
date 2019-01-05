@@ -9,26 +9,24 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import static org.firstinspires.ftc.team14787.Vision.LABEL_GOLD_MINERAL;
+import static org.firstinspires.ftc.team14787.Vision.LABEL_SILVER_MINERAL;
+
+/**
+ * Autonomous OpMode for double sample, starting at the crater
+ */
 @Autonomous(name="Double Sample OpMode", group="Autonomous")
 public class DoubleSampleAutonOpMode extends AutonOpMode {
 
-    private final double STRAFE_POWER = 0.1;
-
+    /**
+     * Run custom movements for this mode
+     */
     @Override
     public void runOpMode() {
         super.runOpMode();
 
-        robot.hang.setPower(0);
-        sleep(2000);
-        robot.hang.setPower(1);
-        sleep(500);
-        robot.hang.setPower(0);
-
         telemetry.addData("Mode", "Knocking off gold piece");
         telemetry.update();
-
-        moveForward(8, 0.05);
-        strafeRight(13, STRAFE_POWER);
 
         // Fork behavior based off of detected gold position, eventually returns to center
         switch (goldLocation) {
@@ -46,31 +44,26 @@ public class DoubleSampleAutonOpMode extends AutonOpMode {
         rotate(-90, ROTATE_MIN_POWER, ROTATE_MAX_POWER);
         rotate(-90, ROTATE_MIN_POWER, ROTATE_MAX_POWER);
 
-        // Sampling with TFOD
-        // Activate Tensor Flow Object Detection.
-        if (tfod != null) {
-            tfod.activate();
-        }
+        // Enable on TFOD
+        vision.enableDetection();
 
         int distance = 0;
 
-        List<Recognition> updatedRecgonitions = new ArrayList<>();
-        while (updatedRecgonitions.isEmpty() || (!updatedRecgonitions.isEmpty() && updatedRecgonitions.get(0).getLabel().equals(LABEL_GOLD_MINERAL))) {
+        // Move slowly across minerals and find second gold position
+        List<Recognition> updatedRecgonitions = vision.getUpdatedRecognitions();
+        while (updatedRecgonitions.isEmpty() || (!updatedRecgonitions.isEmpty() && updatedRecgonitions.get(0).getLabel().equals(LABEL_SILVER_MINERAL))) {
             moveBackward(9, DRIVE_POWER);
             distance += 9;
+            updatedRecgonitions = vision.getUpdatedRecognitions();
         }
 
+        // Knock off gold piece and return to crater using preserved distance value
         strafeRight(8, STRAFE_POWER);
         strafeLeft(8, STRAFE_POWER);
         moveForward(distance, DRIVE_POWER);
         rotate(45, ROTATE_MIN_POWER, ROTATE_MAX_POWER);
         strafeLeft(5, STRAFE_POWER);
         moveForward(87, .75);
-
-
-        while (opModeIsActive()) {
-            sleep(1000);
-        }
     }
 
     /**

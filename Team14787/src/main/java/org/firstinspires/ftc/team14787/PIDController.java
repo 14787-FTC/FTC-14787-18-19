@@ -1,5 +1,9 @@
 package org.firstinspires.ftc.team14787;
 
+/**
+ * PID Controller class for the calculation of accurate
+ * forward/reverse movement, correction, and rotation
+ */
 public class PIDController
 {
     private double m_P;                     // Factor for "proportional" control
@@ -25,7 +29,7 @@ public class PIDController
      * @param Ki the integral coefficient
      * @param Kd the derivative coefficient
      */
-    public PIDController(double Kp, double Ki, double Kd)
+    PIDController(double Kp, double Ki, double Kd)
     {
         m_P = Kp;
         m_I = Ki;
@@ -126,7 +130,7 @@ public class PIDController
      * This is always centered on zero and constrained the the max and min outs
      * @return the latest calculated output
      */
-    public double performPID()
+    private double performPID()
     {
         calculate();
         return m_result;
@@ -138,7 +142,7 @@ public class PIDController
      * This is always centered on zero and constrained the the max and min outs
      * @return the latest calculated output
      */
-    public double performPID(double input)
+    double performPID(double input)
     {
         setInput(input);
         return performPID();
@@ -151,7 +155,7 @@ public class PIDController
      *  the setpoint.
      * @param continuous Set to true turns on continuous, false turns off continuous
      */
-    public void setContinuous(boolean continuous) {
+    private void setContinuous(boolean continuous) {
         m_continuous = continuous;
     }
 
@@ -171,7 +175,7 @@ public class PIDController
      * @param minimumInput the minimum value expected from the input, always positive
      * @param maximumInput the maximum value expected from the output, always positive
      */
-    public void setInputRange(double minimumInput, double maximumInput)
+    void setInputRange(double minimumInput, double maximumInput)
     {
         m_minimumInput = Math.abs(minimumInput);
         m_maximumInput = Math.abs(maximumInput);
@@ -184,7 +188,7 @@ public class PIDController
      * @param minimumOutput the minimum value to write to the output, always positive
      * @param maximumOutput the maximum value to write to the output, always positive
      */
-    public void setOutputRange(double minimumOutput, double maximumOutput)
+    void setOutputRange(double minimumOutput, double maximumOutput)
     {
         m_minimumOutput = Math.abs(minimumOutput);
         m_maximumOutput = Math.abs(maximumOutput);
@@ -194,7 +198,7 @@ public class PIDController
      * Set the setpoint for the PIDController
      * @param setpoint the desired setpoint
      */
-    public void setSetpoint(double setpoint)
+    void setSetpoint(double setpoint)
     {
         int     sign = 1;
 
@@ -234,7 +238,7 @@ public class PIDController
      * OnTarget. (Input of 15.0 = 15 percent)
      * @param percent error which is tolerable
      */
-    public void setTolerance(double percent) {
+    void setTolerance(double percent) {
         m_tolerance = percent;
     }
 
@@ -244,7 +248,7 @@ public class PIDController
      * were set using setInputRange.
      * @return true if the error is less than the tolerance
      */
-    public boolean onTarget()
+    boolean onTarget()
     {
         return (Math.abs(m_error) < Math.abs(m_tolerance / 100 * (m_maximumInput - m_minimumInput)));
     }
@@ -252,21 +256,21 @@ public class PIDController
     /**
      * Begin running the PIDController
      */
-    public void enable() {
+    void enable() {
         m_enabled = true;
     }
 
     /**
      * Stop running the PIDController.
      */
-    public void disable() {
+    void disable() {
         m_enabled = false;
     }
 
     /**
      * Reset the previous error,, the integral term, and disable the controller.
      */
-    public void reset()
+    void reset()
     {
         disable();
         m_prevError = 0;
@@ -278,7 +282,7 @@ public class PIDController
      * Set the input value to be used by the next call to performPID().
      * @param input Input value to the PID calculation.
      */
-    public void setInput(double input)
+    void setInput(double input)
     {
         int     sign = 1;
 

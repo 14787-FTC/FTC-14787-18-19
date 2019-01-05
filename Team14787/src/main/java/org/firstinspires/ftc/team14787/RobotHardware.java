@@ -17,7 +17,7 @@ import java.util.ArrayList;
 
 /**
  * Robot hardware configuration class, represents the entire robot
- * and controls movement functionality
+ * and contains minimalized motor movement functionality
  */
 class RobotHardware {
     // Robot locational statistics
@@ -25,10 +25,11 @@ class RobotHardware {
     Orientation lastAngles;
     double globalAngle;
 
+    // Drive motor configuration constants
     final private MotorConfigurationType MOTOR_CONFIG = MotorConfigurationType.getMotorType(NeveRest20Gearmotor.class);
-    final private double WHEEL_DIAMTER = 3.937;
+    final private double WHEEL_DIAMETER = 3.937;
     final double TICKS_PER_REV = MOTOR_CONFIG.getTicksPerRev();
-    final double INCHES_PER_REV = (WHEEL_DIAMTER * Math.PI) / TICKS_PER_REV;
+    private final double INCHES_PER_REV = (WHEEL_DIAMETER * Math.PI) / TICKS_PER_REV;
 
     // Drive train motors
     List<DcMotor> driveTrain;
@@ -85,12 +86,6 @@ class RobotHardware {
         deployment1 = hardwareMap.servo.get("deployment1");
         deployment2 = hardwareMap.servo.get("deployment2");
     }
-
-    /*
-    void readSensor() {
-        telemetry.addData("Color Sensor Information", "Alpha: %d\nHue: %d\nRGB: (%d, %d, %d)", colorSensor.alpha(), colorSensor.argb(), colorSensor.red(), colorSensor.green(), colorSensor.blue());
-    }
-    */
 
     /**
      * Updates the global angle using the imu
