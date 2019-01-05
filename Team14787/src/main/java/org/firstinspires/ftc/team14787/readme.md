@@ -1,8 +1,8 @@
 ## TeamCode Module
 
-This module contains all OpModes included in the final build of the robot.
+This module contains all OpModes and control/subsystem classes included in the final build of the robot.
 
-## OpMode List
+# OpMode List
 ### Autonomous
 ##### Crater Auton
 Single sample starting on the crater side of the field
@@ -17,7 +17,7 @@ Simply turns on game object detection for debugging
 ##### Mecanum Drive
 Moves the robot according to user-controlled input via the joystick; The left stick controls forward/backward movement and strafing while the right stick control rotational movement.
 
-## Non-OpMode Inclusions
+# Non-OpMode Classes
 ##### RobotHardware
 Represents the hardware of a robot, including motors and minimalized control methods.
 ##### PID Controller
