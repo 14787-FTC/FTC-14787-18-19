@@ -2,6 +2,7 @@ package org.firstinspires.ftc.team14787;
 
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
+import com.qualcomm.robotcore.hardware.DcMotor;
 
 /**
  * Autonomous OpMode used to complete simple motor tests
@@ -20,7 +21,8 @@ public class TestingOpMode extends OpMode {
     /** Complete tests and provide deubgging information */
     @Override
     public void loop() {
-        robot.deployment2.setPosition(.65);
+        //robot.deployment2.setPosition(.65);
+        robot.hang.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
 
         telemetry.addData("Positional Status", "frontLeft: %d, frontRight: %d, backLeft: %d, backRight: %d", robot.frontLeftDrive.getCurrentPosition(), robot.frontRightDrive.getCurrentPosition(), robot.backLeftDrive.getCurrentPosition(), robot.backRightDrive.getCurrentPosition());
         telemetry.addData("Motor Status", "frontLeftDrive: %.2f, frontRightDrive: %.2f, backLeftDrive: %.2f, backRightDrive: %.2f", robot.frontLeftDrive.getPower(), robot.frontRightDrive.getPower(), robot.backLeftDrive.getPower(), robot.backRightDrive.getPower());

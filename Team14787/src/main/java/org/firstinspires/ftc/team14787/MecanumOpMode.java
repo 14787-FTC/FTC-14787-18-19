@@ -39,10 +39,6 @@ public class MecanumOpMode extends OpMode {
 
         telemetry.addData("Status", "Initialized");
         telemetry.update();
-
-        // Reset team marker deployment servos
-        robot.deployment1.setPosition(0);
-        robot.deployment2.setPosition(0);
     }
 
     /**
@@ -50,26 +46,21 @@ public class MecanumOpMode extends OpMode {
      */
     @Override
     public void loop() {
-        // Gamepad configuration and calculation variables
-        double r, robotAngle, rightX, p1, p2, p3, p4;
-
-        // Calculate required power for each wheel based off of controller input and robot position
-        r = Math.hypot(gamepad1.left_stick_x, gamepad1.left_stick_y);
-        robotAngle = Math.atan2(gamepad1.left_stick_y, gamepad1.left_stick_x) - Math.PI / 4;
-        rightX = gamepad1.right_stick_x;
         dPadUp = gamepad1.dpad_up;
         dPadDown = gamepad1.dpad_down;
 
-        p1 = r * Math.cos(robotAngle) - rightX;
-        p2 = r * Math.sin(robotAngle) + rightX;
-        p3 = r * Math.sin(robotAngle) - rightX;
-        p4 = r * Math.cos(robotAngle) + rightX;
+        // Convert joysticks to desired motion.
+        Mecanum.Motion motion = Mecanum.joystickToMotion(
+                gamepad1.left_stick_x, gamepad1.left_stick_y,
+                gamepad1.right_stick_x, gamepad1.right_stick_y);
 
-        // Set each respective power
-        robot.frontLeftDrive.setPower(p1);
-        robot.frontRightDrive.setPower(p2);
-        robot.backLeftDrive.setPower(p3);
-        robot.backRightDrive.setPower(p4);
+
+        // Convert desired motion to wheel powers, with power clamping.
+        Mecanum.Wheels wheels = Mecanum.motionToWheels(motion);
+        robot.frontLeftDrive.setPower(-wheels.frontLeft);
+        robot.frontRightDrive.setPower(-wheels.frontRight);
+        robot.backLeftDrive.setPower(-wheels.backLeft);
+        robot.backRightDrive.setPower(-wheels.backRight);
 
         // Manage hang control
         if (dPadUp) {
@@ -80,9 +71,29 @@ public class MecanumOpMode extends OpMode {
             robot.hang.setPower(0);
         }
 
+        /*
+        // Gamepad configuration and calculation variables
+        double r, robotAngle, rightX, p1, p2, p3, p4;
+
+        // Calculate required power for each wheel based off of controller input and robot position
+        r = Math.hypot(gamepad1.left_stick_x, gamepad1.left_stick_y);
+        robotAngle = Math.atan2(gamepad1.left_stick_y, gamepad1.left_stick_x) - Math.PI / 4;
+        rightX = gamepad1.right_stick_x;
+        p1 = r * Math.cos(robotAngle) - rightX;
+        p2 = r * Math.sin(robotAngle) + rightX;
+        p3 = r * Math.sin(robotAngle) - rightX;
+        p4 = r * Math.cos(robotAngle) + rightX;
+
+        robot.frontLeftDrive.setPower(p1);
+        robot.frontRightDrive.setPower(p2);
+        robot.backLeftDrive.setPower(p3);
+        robot.backRightDrive.setPower(p4);
+
+        */
+
         // Provide debugging information
         telemetry.addData("Status", "Runtime: %s", runtime.toString());
-        telemetry.addData("Drive Train", "Front Left: %.2f\nFront Right: %.2f\nBack Left: %.2f\nBack Rigth: %.2f", p1, p2, p3, p4);
+        telemetry.addData("Drive Train", "Front Left: %.2f\nFront Right: %.2f\nBack Left: %.2f\nBack Rigth: %.2f", wheels.frontLeft, wheels.frontRight, wheels.backLeft, wheels.backRight);
         telemetry.update();
     }
 }

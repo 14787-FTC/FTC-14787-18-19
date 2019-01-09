@@ -27,7 +27,7 @@ public abstract class AutonOpMode extends LinearOpMode {
 
     /** Tunable speeds */
     final double DRIVE_POWER = 0.5;
-    private final double DRIVE_MIN_POWER = 0.03;
+    private final double DRIVE_MIN_POWER = 0.1;
     final double STRAFE_POWER = 0.1;
     final double ROTATE_MIN_POWER = 0.1;
     final double ROTATE_MAX_POWER = 0.5;
@@ -47,7 +47,7 @@ public abstract class AutonOpMode extends LinearOpMode {
     private final PIDController pidRotate = new PIDController(rotateKp, rotateKi, rotateKd);
 
     /** Llocation of the initial gold mineral */
-    MineralLocation goldLocation;
+    MineralLocation goldLocation = null;
 
     /**
      * Initial logic for all autonomous OpModes, configure robot hardware
@@ -79,37 +79,17 @@ public abstract class AutonOpMode extends LinearOpMode {
         telemetry.addData("IMU Calibration status", imu.getCalibrationStatus().toString());
         telemetry.update();
 
-        vision = new Vision(hardwareMap);
+        vision = new Vision(hardwareMap, telemetry);
 
         // Instantiate robot subsystem
         robot = new RobotHardware(hardwareMap, imu);
-        robot.deployment1.setPosition(0);
-        robot.deployment2.setPosition(1);
         robot.hang.setPower(-1);
-
-        // Detect relative gold mineral position via recognizing the two far left minerals
-        while (goldLocation == null && opModeIsActive()) {
-            goldLocation = vision.getGoldLocation();
-        }
-
-        // Deactive TFOD to preserve memory space
-        vision.disableDetection();
-
-        telemetry.addData("Status", "Gold location found, waiting for start");
-        telemetry.addData("Data", "Gold located at %s", goldLocation.toString());
-        telemetry.update();
 
         // Wait for the game to start (driver presses PLAY)
         waitForStart();
 
-        // Detach from hang and remove hook
-        robot.hang.setPower(0);
-        sleep(2000);
-        robot.hang.setPower(1);
-        sleep(500);
-        robot.hang.setPower(0);
-        moveForward(8, 0.05);
-        strafeRight(13, STRAFE_POWER);
+        robot.deployment1.setPosition(0);
+        robot.deployment2.setPosition(1);
     }
 
     /**
@@ -151,12 +131,13 @@ public abstract class AutonOpMode extends LinearOpMode {
         double rightEncSum = robot.calculateRightTicks(distance);
 
         telemetry.addData("Status", "Moving forward %f inches\nDesired left encoder position sum = %f\nDesired right encoder position sum = %f", distance, leftEncSum, rightEncSum);
+        telemetry.update();
 
         // Loop until both left and right tick values match their respective sum, thus reaching the target
         while (robot.getLeftTicks() < leftEncSum && robot.getRightTicks() < rightEncSum && opModeIsActive()) {
             // During the first half rotation, speed up slowly to maxSpeed then initiate PID control
             if (-robot.frontLeftDrive.getCurrentPosition() < robot.TICKS_PER_REV / 2 && power < maxPower) {
-                power = Math.abs(-robot.frontLeftDrive.getCurrentPosition() / (robot.TICKS_PER_REV / 2) * maxPower);
+                power = Math.abs(-robot.frontLeftDrive.getCurrentPosition() / (robot.TICKS_PER_REV / 2) * maxPower) + DRIVE_MIN_POWER;
             } else {
                 error = leftEncSum - robot.getLeftTicks();
                 p = error;
@@ -218,7 +199,7 @@ public abstract class AutonOpMode extends LinearOpMode {
         while (robot.getLeftTicks() < leftEncSum && robot.getRightTicks() < rightEncSum && opModeIsActive()) {
             // During the first half rotation, speed up slowly to maxSpeed then initiate PID control
             if (robot.frontLeftDrive.getCurrentPosition() < robot.TICKS_PER_REV / 2 && power < maxPower) {
-                power = Math.abs(robot.frontLeftDrive.getCurrentPosition() / (robot.TICKS_PER_REV / 2) * maxPower);
+                power = Math.abs(robot.frontLeftDrive.getCurrentPosition() / (robot.TICKS_PER_REV / 2) * maxPower) + DRIVE_MIN_POWER;
             } else {
                 error = leftEncSum - robot.getLeftTicks();
                 p = error;

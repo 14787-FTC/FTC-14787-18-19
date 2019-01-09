@@ -39,17 +39,16 @@ class Vision {
     /** Reference to the encapsulating robot's hardware configuration */
     private HardwareMap hardwareMap;
 
-    /*
-    /** Telemetry instance to provide debugging information /
-    Telemetry telemetry;
-    */
+    /** Telemetry instance to provide debugging information */
+    private Telemetry telemetry;
 
     /**
      * Create a camera management interface
      * @param hardwareMap Reference to the encapsulating robot's hardware configuration
      */
-    Vision(HardwareMap hardwareMap) {
+    Vision(HardwareMap hardwareMap, Telemetry telemetry) {
         this.hardwareMap = hardwareMap;
+        this.telemetry = telemetry;
 
         // The TFObjectDetector uses the camera frames from the VuforiaLocalizer, so we create that
         // first.
@@ -65,13 +64,11 @@ class Vision {
         // Sampling with TFOD
         // Activate Tensor Flow Object Detection.
         tfod.activate();
-        tfodEnabled = true;
     }
 
     /** Disable TFOD */
     void disableDetection() {
         if (tfodEnabled) tfod.deactivate();
-        tfodEnabled = false;
     }
 
     /**
@@ -83,15 +80,17 @@ class Vision {
         MineralLocation goldLocation = null;
 
         if (tfod != null) {
-            List<Recognition> updatedRecognitions = getUpdatedRecognitions();
+            telemetry.addData("Status", "Detecting gold location");
+            //telemetry.addData("TFDOD Calls", "updatedRecognitions: %s\n recognitions: %s", tfod.getRecognitions(), tfod.getRecognitions());
+            List<Recognition> updatedRecognitions = getRecognitions();
             if (updatedRecognitions != null) {
+                telemetry.addData("Size", updatedRecognitions.size());
                 // Only run if there are two detected game objects
                 if (updatedRecognitions.size() == 2) {
                     // Retrieve instances of both unordered objects
                     Recognition mineral1 = updatedRecognitions.get(0);
                     Recognition mineral2 = updatedRecognitions.get(1);
 
-                    // Determine left and center minerals
                     Recognition leftMineral = mineral1.getLeft() < mineral2.getLeft() ? mineral1 : mineral2;
                     Recognition centerMineral = mineral1.getLeft() > mineral2.getLeft() ? mineral1 : mineral2;
 
@@ -105,15 +104,13 @@ class Vision {
                     }
 
                     // Provide debugging information
-                    /*
                     telemetry.addData("Base Mineral Info", "\nMineral1 (%s): getLeft() : %f\nMineral2 (%s): getLeft() : %f", mineral1.getLabel(), mineral1.getLeft(), mineral2.getLabel(), mineral2.getLeft());
                     telemetry.addData("Mineral Info", "\nLeft Mineral (%s): getLeft() : %f\nRight Mineral (%s): getLeft() : %f", leftMineral.getLabel(), leftMineral.getLeft(), centerMineral.getLabel(), centerMineral.getLeft());
                     telemetry.addData("Gold Location Info", "\ngoldLocation: %s", goldLocation.toString());
-                    telemetry.update();
-                    */
                 }
             }
         }
+        telemetry.update();
         return goldLocation;
     }
 
@@ -121,8 +118,8 @@ class Vision {
      * TFOD wrapper method
      * @return Currently detected game objects
      */
-    List<Recognition> getUpdatedRecognitions() {
-        return tfod.getUpdatedRecognitions();
+    List<Recognition> getRecognitions() {
+        return tfod.getRecognitions();
     }
 
     /**

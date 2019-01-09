@@ -4,9 +4,6 @@ import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 
 import org.firstinspires.ftc.robotcore.external.tfod.Recognition;
 
-import java.sql.Driver;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 import static org.firstinspires.ftc.team14787.Vision.LABEL_GOLD_MINERAL;
@@ -25,6 +22,34 @@ public class DoubleSampleAutonOpMode extends AutonOpMode {
     public void runOpMode() {
         super.runOpMode();
 
+
+        // Detect relative gold mineral position via recognizing the two far left minerals
+        while (goldLocation == null) {
+            goldLocation = vision.getGoldLocation();
+        }
+
+        // Deactive TFOD to preserve memory space
+        vision.disableDetection();
+
+        telemetry.addData("Status", "Gold location found, waiting for start");
+        telemetry.addData("Gold Location", goldLocation);
+        telemetry.update();
+
+        // Detach from hang and remove hook
+        robot.hang.setPower(0);
+        sleep(2000);
+        robot.hang.setPower(0.5);
+        sleep(500);
+        robot.hang.setPower(0);
+        telemetry.addData("Status", "Moving Forward");
+        telemetry.update();
+        //moveForward(8, 0.05);
+        robot.setLeftPower(-0.5);
+        robot.setRightPower(-0.3);
+        sleep(275);
+        robot.setDrivePower(0);
+        strafeRight(13, STRAFE_POWER);
+
         telemetry.addData("Mode", "Knocking off gold piece");
         telemetry.update();
 
@@ -35,7 +60,7 @@ public class DoubleSampleAutonOpMode extends AutonOpMode {
             case RIGHT: rightDetected(); break;
         }
 
-        rotate(33, ROTATE_MIN_POWER, ROTATE_MAX_POWER);
+        rotate(35, ROTATE_MIN_POWER, ROTATE_MAX_POWER);
         strafeRight(9, STRAFE_POWER);
         moveForward(40, DRIVE_POWER);
         // Deployment1 = 0-0.35, Deployment2 = 1-0.65
@@ -46,20 +71,44 @@ public class DoubleSampleAutonOpMode extends AutonOpMode {
 
         // Enable on TFOD
         vision.enableDetection();
+        sleep(250);
 
         int distance = 0;
 
         // Move slowly across minerals and find second gold position
-        List<Recognition> updatedRecgonitions = vision.getUpdatedRecognitions();
-        while (updatedRecgonitions.isEmpty() || (!updatedRecgonitions.isEmpty() && updatedRecgonitions.get(0).getLabel().equals(LABEL_SILVER_MINERAL))) {
-            moveBackward(9, DRIVE_POWER);
-            distance += 9;
-            updatedRecgonitions = vision.getUpdatedRecognitions();
+        List<Recognition> updatedRecgonitions = vision.getRecognitions();
+        telemetry.addData("Status", "Listing Percieve Minerals");
+        if (updatedRecgonitions == null) telemetry.addData("Mineral", "Not found");
+        else telemetry.addData("Mineral", updatedRecgonitions.get(0));
+        telemetry.update();
+
+        boolean run = updatedRecgonitions != null && !updatedRecgonitions.isEmpty() && updatedRecgonitions.get(0).getLabel().equals(LABEL_SILVER_MINERAL);
+
+        while (run && opModeIsActive()) {
+            moveBackward(3, DRIVE_POWER);
+            distance += 3;
+
+            updatedRecgonitions = vision.getRecognitions();
+
+            telemetry.addData("Status", "Listing Percieve Minerals");
+            for (Recognition r : updatedRecgonitions) {
+                if (r.getLabel().equals(LABEL_GOLD_MINERAL)) {
+                    run = false;
+                }
+
+                telemetry.addData("Mineral", r.getLabel());
+
+            }
+            telemetry.update();
+
+            if (distance > 9) {
+                run = false;
+            }
         }
 
         // Knock off gold piece and return to crater using preserved distance value
-        strafeRight(8, STRAFE_POWER);
-        strafeLeft(8, STRAFE_POWER);
+        strafeRight(15, STRAFE_POWER);
+        strafeLeft(12, STRAFE_POWER);
         moveForward(distance, DRIVE_POWER);
         rotate(45, ROTATE_MIN_POWER, ROTATE_MAX_POWER);
         strafeLeft(5, STRAFE_POWER);
@@ -77,7 +126,7 @@ public class DoubleSampleAutonOpMode extends AutonOpMode {
     }
 
     private void centerDetected() {
-        moveBackward(5, DRIVE_POWER);
+        moveBackward(3, DRIVE_POWER);
         strafeRight(12, STRAFE_POWER);
         strafeLeft(10, STRAFE_POWER);
         moveForward(40, DRIVE_POWER);
